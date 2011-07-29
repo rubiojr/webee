@@ -1,0 +1,33 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'webee'
+require 'webee/command'
+require 'mixlib/cli'
+require 'pp'
+
+config = YAML.load_file("#{ENV['HOME']}/.webeerc")
+
+WeBee::Api.user = config[:user]
+WeBee::Api.password = config[:password]
+WeBee::Api.url = config[:url]
+
+if not WeBee::Api.test_auth
+  $stderr.puts 'API Access Error. Check configuration.'
+  exit 1
+end
+
+
+cmd = ARGV.shift
+if cmd.nil?
+  $stderr.puts "No command specified."
+  WeBee::Command.list_all.each do |cmd|
+    WeBee::Command.print_help cmd
+  end
+end
+
+if not WeBee::Command.list_all.find { |c| c == cmd }
+  $stderr.puts "Invalid command: #{cmd}"
+else
+    WeBee::Command.execute cmd
+end
