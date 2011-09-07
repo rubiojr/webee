@@ -4,10 +4,12 @@ require 'sax-machine'
 require 'nokogiri'
 require 'active_support/core_ext/hash'
 require 'uri'
+require 'json'
+require 'builder'
 
 module WeBee 
 
-  VERSION = '0.1'
+  VERSION = '0.2'
 
   module RestResource
     
@@ -49,7 +51,7 @@ module WeBee
 
   class Api
     class << self
-      attr_accessor :user, :password, :url, :port
+      attr_accessor :user, :password, :url, :port, :host
 
       def url=(url)
         @url = build_url(url)
@@ -59,6 +61,7 @@ module WeBee
       def build_url(url)
         port ||= 80
         uri = URI.parse(url)
+        @host = uri.host
         "http://#{user}:#{password}@#{uri.host}:#{uri.port}#{uri.path}"
       end
     end
@@ -120,25 +123,55 @@ module WeBee
 
     element :id, :as => :datacenter_id
     element :name
-    element :ramSoft
-    element :ramHard
-    element :cpuSoft
-    element :cpuHard
-    element :storageSoft
-    element :storageHard
-    element :repositorySoft
-    element :repositoryHard
-    element :publicIPSoft
-    element :publicIPHard
-    element :hdSoft
-    element :hdHard
-    element :vlanSoft
-    element :vlanHard
+    element :ramSoft, :as => :ram_soft
+    element :ramHard, :as => :ram_hard
+    element :cpuSoft, :as => :cpu_soft
+    element :cpuHard, :as => :cpu_hard
+    element :storageSoft, :as => :storage_soft
+    element :storageHard, :as => :storage_hard
+    element :repositorySoft, :as => :repository_soft
+    element :repositoryHard, :as => :repository_hard
+    element :publicIpsSoft, :as => :public_ip_soft
+    element :publicIpsHard, :as => :public_ip_hard
+    element :hdSoft, :as => :hd_soft
+    element :hdHard, :as => :hd_hard
+    element :vlanSoft, :as => :vlan_soft
+    element :vlanHard, :as => :vlan_hard
     element :location
 
     def self.create(attributes)
-      xml = attributes.to_xml(:root => 'datacenter')
-      res = RestClient.post(Api.url + '/admin/datacenters', xml, :content_type => :xml, :accept => :xml)
+      if attributes[:remote_services].nil?
+        attributes[:remote_services] = WeBee::RemoteService.create_for_host(Api.host)
+      end
+      xm = Builder::XmlMarkup.new
+      xm.datacenter {
+        xm.name attributes[:name]
+        xm.location(attributes[:location] ||  'California, USA')
+        xm.cpuSoft(attributes[:cpu_soft] || "0")
+        xm.cpuHard(attributes[:cpu_hard] || "0")
+        xm.vlanSoft(attributes[:vlan_soft] || "0")
+        xm.vlanHard(attributes[:vlan_hard] || "0")
+        xm.ramSoft(attributes[:ram_soft] || "0")
+        xm.ramHard(attributes[:ram_hard] || "0")
+        xm.repositorySoft(attributes[:repository_soft] || "0")  
+        xm.repositoryHard(attributes[:repository_hard] || "0") 
+        xm.publicIpsSoft(attributes[:public_ip_soft] || "0" ) 
+        xm.publicIpsHard(attributes[:public_ip_hard] || "0" ) 
+        xm.hdSoft(attributes[:hd_soft] || "0")
+        xm.hdHard(attributes[:hd_hard] || "0")
+        xm.storageSoft(attributes[:storage_soft] || "0")
+        xm.storageHard(attributes[:storage_hard] || "0")
+        xm.remoteServices {
+          attributes[:remote_services].each do |rs|
+            puts rs
+            xm.remoteService {
+              xm.uri  rs.uri
+              xm.type rs.rs_type
+            }
+          end
+        }
+      }
+      res = RestClient.post(Api.url + '/admin/datacenters', xm.target!, :content_type => :xml)
       Datacenter.parse(res)
     end
 
@@ -159,6 +192,60 @@ module WeBee
       items 
     end
 
+  end
+
+  class RemoteService
+    attr_reader :attributes
+
+    def initialize(attributes)
+      @attributes = attributes
+    end
+
+    def uri
+      @attributes[:uri]
+    end
+
+    def rs_type
+      @attributes[:rs_type]
+    end
+
+    def self.from_type(address, type, use_ssl = false)
+      rs_type_map = {
+        'STORAGE_SYSTEM_MONITOR' => 'ssm',
+        'VIRTUAL_FACTORY' => 'virtualfactory',
+        'VIRTUAL_SYSTEM_MONITOR' => 'vsm',
+        'NODE_COLLECTOR' => 'nodecollector',
+        'APPLIANCE_MANAGER' => 'am',
+      }
+      case type
+        when RemoteServiceType::BPM_SERVICE
+          RemoteService.new :uri => "tcp://#{address}:61616", :rs_type => type
+        when RemoteServiceType::DHCP_SERVICE
+          RemoteService.new :uri => "omapi://#{address}:7911", :rs_type => type
+        else
+          if use_ssl
+            RemoteService.new :uri => "https://#{address}:443", :rs_type => type
+          else
+            RemoteService.new :uri => "http://#{address}:80/#{rs_type_map[type]}", :rs_type => type
+          end
+      end
+    end
+
+    def self.create_for_host(address, use_ssl = false)
+      items = []
+      %w(
+        STORAGE_SYSTEM_MONITOR
+        VIRTUAL_FACTORY
+        VIRTUAL_SYSTEM_MONITOR
+        NODE_COLLECTOR
+        APPLIANCE_MANAGER
+        DHCP_SERVICE
+        BPM_SERVICE
+      ).each do |t|
+        items << RemoteService.from_type(address, t, use_ssl)
+      end
+      items
+    end
   end
 
   class Rack
@@ -189,6 +276,57 @@ module WeBee
       RestClient.delete(Api.url + "/admin/datacenters/#{datacenter_id}/racks/#{rack_id}", :content_type => :xml)
     end
 
+  end
+
+  class RemoteServiceType
+    VIRTUAL_FACTORY = 'VIRTUAL_FACTORY'
+    STORAGE_SYSTEM_MONITOR = 'STORAGE_SYSTEM_MONITOR'
+    VIRTUAL_SYSTEM_MONITOR = 'VIRTUAL_SYSTEM_MONITOR'
+    NODE_COLLECTOR = 'NODE_COLLECTOR'
+    APPLIANCE_MANAGER = 'APPLIANCE_MANAGER'
+    DHCP_SERVICE = 'DHCP_SERVICE'
+    BPM_SERVICE = 'BPM_SERVICE'
+  end
+
+  #
+  # A Virtual Datacenter Network
+  # FIXME: Unimplemented
+  #
+  class VDCNetwork
+    include SAXMachine
+    element :id, :as => :vdc_id
+    element :name
+    element :gateway
+    element :address
+    element :mask
+    element :defaultNetwork, :as => :default_network
+
+    def self.create(attributes)
+      xml = attributes.to_xml(:root => 'network')
+      VDCNetwork.parse(xml)
+    end
+  end
+  
+  #
+  # A virtual datacenter
+  # FIXME: Unimplemented
+  class VDC
+    include SAXMachine
+    element :id, :as => :vdc_id
+    element :name
+    element :network, :class => VDCNetwork
+    element :hypervisorType, :as => :hypervisor_type
+
+    def self.create(attributes)
+      attributes[:network] = {
+        :name => attributes[:network].name,
+        :gateway => attributes[:network].gateway,
+        :address => attributes[:network].address,
+        :mask => attributes[:network].mask,
+        :default_network => attributes[:network].default_network,
+      }
+      xml = attributes.to_xml(:root => 'network')
+    end
   end
 
   class Enterprise
