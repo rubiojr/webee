@@ -7,9 +7,29 @@ require 'uri'
 require 'json'
 require 'builder'
 
+#
+# Monkeypatch SAXMachine to keep the raw XMK
+#
+# Ugly but fun, isn't it? This may blow up at some point
+#
+module SAXMachine
+
+  alias_method :old_parse, :parse
+
+  def parse(xml, on_error = nil, on_warning = nil)
+    obj = old_parse(xml, on_error, on_warning)
+    obj.instance_variable_set :@raw, xml
+    obj.class.send :define_method, 'raw' do
+      @raw
+    end
+    obj
+  end
+end
+
 module WeBee 
 
   VERSION = '0.2'
+
 
   module RestResource
     
@@ -46,6 +66,12 @@ module WeBee
       base.extend(ClassMethods)
     end
 
+  end
+
+  class Config
+      def self.add_license(hash)
+        RestClient.post Api.url + "/config/licenses" , "<license><code>#{hash}</code></license>", :content_type => :xml
+      end
   end
 
 
@@ -163,7 +189,6 @@ module WeBee
         xm.storageHard(attributes[:storage_hard] || "0")
         xm.remoteServices {
           attributes[:remote_services].each do |rs|
-            puts rs
             xm.remoteService {
               xm.uri  rs.uri
               xm.type rs.rs_type
@@ -187,9 +212,27 @@ module WeBee
       doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/datacenters/#{@datacenter_id}/racks", :accept => :xml))
       doc.search 
       doc.search('//rack').each do |node|
-        items << Rack.parse(node.to_s)
+        rack = Rack.parse(node.to_s)
+        rack.datacenter_id = @datacenter_id
+        items << rack
       end
       items 
+    end
+
+    def add_rack(params)
+      Rack.create datacenter_id, params
+    end
+
+    def discover_machine(params)
+      p = {}
+      p[:ip] = params[:ip]
+      p[:hypervisortype] = params[:hypervisortype] || 'kvm'
+      p[:user] = params[:user] || 'user'
+      p[:password] = params[:secret] || 'secret'
+      p[:port] = params[:port] || '8889'
+      p[:virtual_switch] = params[:virtual_switch]
+      res = RestClient.get Api.url + "/admin/datacenters/#{datacenter_id}/action/discover", :params => p, :content_type => :xml
+      machine = Machine.parse res
     end
 
   end
@@ -276,6 +319,120 @@ module WeBee
       RestClient.delete(Api.url + "/admin/datacenters/#{datacenter_id}/racks/#{rack_id}", :content_type => :xml)
     end
 
+    def add_machine(machine)
+      begin
+      res = RestClient.post Api.url + "/admin/datacenters/#{datacenter_id}/racks/#{rack_id}/machines", machine.to_xml, :content_type => :xml
+      rescue Exception => e
+        puts e.http_body
+      end
+    end
+
+    def machines
+      u = []
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/datacenters/#{datacenter_id}/racks/#{rack_id}/machines", :content_type => :xml))
+      doc.search('//machine').each do |node|
+        u << Machine.parse(node.to_s)
+      end
+      u
+    end
+
+  end
+
+  class Datastore
+    include SAXMachine
+
+    element :id, :as => :datastore_id
+    element :directory
+    element :rootPath, :as => :root_path
+    element :enabled
+    element :name
+    element :size
+    element :usedSize, :as => :used_size
+
+    def to_xml
+      xm = Builder::XmlMarkup.new
+      xm.datastore {
+        xm.name name
+        xm.directory directory
+        xm.rootPath root_path
+        xm.enabled enabled
+        xm.size size
+        xm.usedSize used_size
+      }
+    end
+
+  end
+
+  class Machine
+    include SAXMachine
+
+    attr_accessor :raw
+    attr_accessor :datacenter_id
+
+    element :id, :as => :machine_id
+    element :description
+    element :ip
+    element :ipService, :as => :ip_service
+    element :name
+    element :password
+    element :user
+    element :realCpu, :as => :real_cpu
+    element :realHd, :as => :real_hd
+    element :realRam, :as => :real_ram
+    element :state
+    element :type, :as => :hypervisortype
+    element :cpu
+    element :cpuRatio, :as => :cpu_ratio
+    element :cpuUsed, :as => :cpu_used
+    element :hd
+    element :hdUsed, :as => :hd_used
+    element :ram
+    element :ramUsed, :as => :ram_used
+    element :virtualSwitch, :as => :virtual_switch
+    elements :datastore, :as => :datastores, :class => Datastore
+
+    def virtual_switches
+      virtual_switch.split('/')
+    end
+
+    def to_xml
+      xm = Builder::XmlMarkup.new
+      xm.machine {
+        xm.name name
+        xm.description description
+        xm.ip ip
+        xm.ipService ip_service
+        xm.user user
+        xm.password password
+        xm.realCpu real_cpu
+        xm.realHd real_hd
+        xm.realRam real_ram
+        xm.state state
+        xm.type hypervisortype
+        xm.cpu cpu
+        xm.cpuRatio cpu_ratio
+        xm.cpuUsed cpu_used
+        xm.hd hd
+        xm.hdUsed hd_used
+        xm.ram ram
+        xm.ramUsed ram_used
+        xm.virtualSwitch virtual_switch
+        xm.datastores {
+          datastores.each do |ds|
+            xm.datastore {
+              xm.name ds.name
+              xm.directory ds.directory
+              xm.rootPath ds.root_path
+              xm.enabled ds.enabled
+              xm.size ds.size
+              xm.usedSize ds.used_size
+            }
+          end
+        }
+      }
+      xm.target!
+    end
+
   end
 
   class RemoteServiceType
@@ -338,6 +495,22 @@ module WeBee
 
     element :id, :as => :resource_id
     element :name
+    element :ramSoft, :as => :ram_soft
+    element :ramHard, :as => :ram_hard
+    element :cpuSoft, :as => :cpu_soft
+    element :cpuHard, :as => :cpu_hard
+    element :storageSoft, :as => :storage_soft
+    element :storageHard, :as => :storage_hard
+    element :repositorySoft, :as => :repository_soft
+    element :repositoryHard, :as => :repository_hard
+    element :publicIpsSoft, :as => :public_ip_soft
+    element :publicIpsHard, :as => :public_ip_hard
+    element :hdSoft, :as => :hd_soft
+    element :hdHard, :as => :hd_hard
+    element :vlanSoft, :as => :vlan_soft
+    element :vlanHard, :as => :vlan_hard
+    element :isReservationRestricted, :as => :is_reservation_restricted
+    
 
     def delete
       RestClient.delete(Api.url + "/admin/enterprises/#{resource_id}")
@@ -347,8 +520,25 @@ module WeBee
     # may raise Exception if recuest is not successful
     #
     def self.create(attributes = {})
-      xml = attributes.to_xml(:root => 'enterprise')
-      res = RestClient.post(Api.url + '/admin/enterprises', xml, :content_type => :xml, :accept => :xml)
+      xm = Builder::XmlMarkup.new
+      xm.enterprise {
+        xm.name attributes[:name]
+        xm.cpuSoft(attributes[:cpu_soft] || "0")
+        xm.cpuHard(attributes[:cpu_hard] || "0")
+        xm.vlanSoft(attributes[:vlan_soft] || "0")
+        xm.vlanHard(attributes[:vlan_hard] || "0")
+        xm.ramSoft(attributes[:ram_soft] || "0")
+        xm.ramHard(attributes[:ram_hard] || "0")
+        xm.repositorySoft(attributes[:repository_soft] || "0")  
+        xm.repositoryHard(attributes[:repository_hard] || "0") 
+        xm.publicIpsSoft(attributes[:public_ip_soft] || "0" ) 
+        xm.publicIpsHard(attributes[:public_ip_hard] || "0" ) 
+        xm.hdSoft(attributes[:hd_soft] || "0")
+        xm.hdHard(attributes[:hd_hard] || "0")
+        xm.storageSoft(attributes[:storage_soft] || "0")
+        xm.storageHard(attributes[:storage_hard] || "0")
+      }
+      res = RestClient.post(Api.url + '/admin/enterprises', xm.target!, :content_type => :xml)
       Enterprise.parse(res)
     end
 
