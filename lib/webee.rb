@@ -555,15 +555,26 @@ module WeBee
     end
 
     def self.all(params = {})
+      items = []
       if params.empty?
-        u = []
-        doc = Nokogiri.parse(RestClient.get(Api.url + "/cloud/virtualdatacenters/", :accept => :xml))
-        doc.search('//virtualdatacenter').each do |node|
-          u << VDC.parse(node.to_s)
+        doc = Nokogiri.parse(RestClient.get(Api.url + "/cloud/virtualdatacenters", :accept => :xml))
+        doc.search('//virtualDatacenter').each do |node|
+          items << VDC.parse(node.to_s)
         end
-        return u
       else
+        extra = []
+        if params[:enterprise_id]
+          extra << "enterprise=#{params[:enterprise_id]}"
+        end
+        if params[:datacenter_id]
+          extra << "datacenter=#{params[:datacenter_id]}"
+        end
+        doc = Nokogiri.parse(RestClient.get(Api.url + "/cloud/virtualdatacenters?#{extra.join('&')}", :accept => :xml))
+        doc.search('//virtualDatacenter').each do |node|
+          items << VDC.parse(node.to_s)
+        end
       end
+      items
     end
 
     def self.find_by_name(name, options = {})
@@ -679,6 +690,10 @@ module WeBee
 
     def vdcs
       VDC.all(:enterprise_id => resource_id)
+    end
+
+    def enterprise_id
+      resource_id
     end
 
   end

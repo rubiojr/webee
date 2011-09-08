@@ -98,3 +98,7 @@ gem install webee
     # FIXME: Not supported in Abiquo right now
     #
     #rack.delete
+
+
+More examples can be found in the examples folder
+

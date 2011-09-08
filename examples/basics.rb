@@ -156,4 +156,14 @@ vdc = qa.create_vdc :datacenter => dc,
                     :vlanHard => 10
 
 # Find VDC by name
-vdc = VDC.find_by_name 'kvm-vdc'
+vdc = WeBee::VDC.find_by_name 'kvm-vdc'
+
+#
+# List all VDCs for my Enterprise
+WeBee::VDC.all 
+
+#
+# List all VDCs from a specific Enterprise/Datacenter
+# Needs Cloud operator privileges
+# 
+WeBee::VDC.all :datacenter_id => WeBee::Datacenter.all.first.datacenter_id, :enterprise_id => 3
