@@ -320,11 +320,7 @@ module WeBee
     end
 
     def add_machine(machine)
-      begin
       res = RestClient.post Api.url + "/admin/datacenters/#{datacenter_id}/racks/#{rack_id}/machines", machine.to_xml, :content_type => :xml
-      rescue Exception => e
-        puts e.http_body
-      end
     end
 
     def machines
@@ -462,6 +458,9 @@ module WeBee
       xml = attributes.to_xml(:root => 'network')
       VDCNetwork.parse(xml)
     end
+
+    def to_xml
+    end
   end
   
   #
@@ -471,19 +470,106 @@ module WeBee
     include SAXMachine
     element :id, :as => :vdc_id
     element :name
+    element :ramSoft, :as => :ram_soft
+    element :ramHard, :as => :ram_hard
+    element :cpuSoft, :as => :cpu_soft
+    element :cpuHard, :as => :cpu_hard
+    element :storageSoft, :as => :storage_soft
+    element :storageHard, :as => :storage_hard
+    element :publicIpsSoft, :as => :public_ip_soft
+    element :publicIpsHard, :as => :public_ip_hard
+    element :hdSoft, :as => :hd_soft
+    element :hdHard, :as => :hd_hard
+    element :vlanSoft, :as => :vlan_soft
+    element :vlanHard, :as => :vlan_hard
+    element :hypervisorType, :as => :hypervisortype
     element :network, :class => VDCNetwork
-    element :hypervisorType, :as => :hypervisor_type
 
     def self.create(attributes)
-      attributes[:network] = {
-        :name => attributes[:network].name,
-        :gateway => attributes[:network].gateway,
-        :address => attributes[:network].address,
-        :mask => attributes[:network].mask,
-        :default_network => attributes[:network].default_network,
+      datacenter = attributes[:datacenter].datacenter_id
+      enterprise = attributes[:enterprise].resource_id
+      if attributes[:network].nil?
+        net = VDCNetwork.new
+        net.name = 'defaultNetwork'
+        net.gateway = '192.168.1.1'
+        net.address = '192.168.1.0'
+        net.mask = '24'
+        net.default_network = true
+        attributes[:network] = net
+      end
+      xm = Builder::XmlMarkup.new
+      xm.virtualDatacenter {
+        xm.name attributes[:name]
+        xm.cpuSoft(attributes[:cpu_soft] || "0")
+        xm.cpuHard(attributes[:cpu_hard] || "0")
+        xm.vlanSoft(attributes[:vlan_soft] || "0")
+        xm.vlanHard(attributes[:vlan_hard] || "0")
+        xm.ramSoft(attributes[:ram_soft] || "0")
+        xm.ramHard(attributes[:ram_hard] || "0")
+        xm.publicIpsSoft(attributes[:public_ip_soft] || "0" ) 
+        xm.publicIpsHard(attributes[:public_ip_hard] || "0") 
+        xm.hdSoft(attributes[:hd_soft] || "0")
+        xm.hdHard(attributes[:hd_hard] || "0" )
+        xm.storageSoft(attributes[:storage_soft] || "0")
+        xm.storageHard(attributes[:storage_hard] || "0")
+        xm.hypervisorType attributes[:hypervisortype]
+        xm.network {
+          xm.name(attributes[:network].name || 'defaultNetwork')
+          xm.gateway(attributes[:network].gateway || '192.168.1.1')
+          xm.address(attributes[:network].address || '192.168.1.0')
+          xm.mask(attributes[:network].mask || '24')
+          xm.defaultNetwork(attributes[:network].default_network || true)
+        }
       }
-      xml = attributes.to_xml(:root => 'network')
+      res = RestClient.post(Api.url + "/cloud/virtualdatacenters/?datacenter=#{datacenter}&enterprise=#{enterprise}", xm.target!, :content_type => :xml)
+      VDC.parse(res)
     end
+
+    def to_xml
+      xm = Builder::XmlMarkup.new
+      xm.virtualDatacenter {
+        xm.name name
+        xm.cpuSoft(cpu_soft || "0")
+        xm.cpuHard(cpu_hard || "0")
+        xm.vlanSoft(vlan_soft || "0")
+        xm.vlanHard(vlan_hard || "0")
+        xm.ramSoft(ram_soft || "0")
+        xm.ramHard(ram_hard || "0")
+        xm.repositorySoft(repository_soft || "0")  
+        xm.repositoryHard(repository_hard || "0") 
+        xm.publicIpsSoft(public_ip_soft || "0" ) 
+        xm.publicIpsHard(public_ip_hard || "0" ) 
+        xm.hdSoft(hd_soft || "0")
+        xm.hdHard(hd_hard || "0")
+        xm.storageSoft(storage_soft || "0")
+        xm.storageHard(storage_hard || "0")
+        xm.network {
+          xm.name(network.name || 'defaultNetwork')
+          xm.gateway(network.gateway || '192.168.1.1')
+          xm.address(network.address || '192.168.1.0')
+          xm.mask(network.mask || '24')
+          xm.defaultNetwork(netowork.default_network || true)
+        }
+      }
+      xm.target!
+    end
+
+    def self.all(params = {})
+      if params.empty?
+        u = []
+        doc = Nokogiri.parse(RestClient.get(Api.url + "/cloud/virtualdatacenters/", :accept => :xml))
+        doc.search('//virtualdatacenter').each do |node|
+          u << VDC.parse(node.to_s)
+        end
+        return u
+      else
+      end
+    end
+
+    def self.find_by_name(name, options = {})
+      VDC.all(options).find_all { |vdc| vdc.name =~ /#{name}/ }
+    end
+
   end
 
   class Enterprise
@@ -543,7 +629,7 @@ module WeBee
     end
 
     def self.find_by_name(name, options = {})
-      Enterprise.all(options).find { |e| e.name =~ /#{name}/ }
+      Enterprise.all(options).find_all { |e| e.name =~ /#{name}/ }
     end
 
     def ovf_packages
@@ -559,9 +645,40 @@ module WeBee
       col 
     end
 
-    def create_user(attributes)
-      attributes[:enterprise] = self
-      User.create attributes
+    def create_user(params)
+      params[:enterprise] = self
+      User.create params
+    end
+
+    def create_vdc(params)
+      params[:enterprise] = self
+      VDC.create(params)
+    end
+
+    def set_limits_for_datacenter(dc, params = {})
+      datacenter = dc.datacenter_id
+      xm = Builder::XmlMarkup.new
+      xm.limit {
+        xm.cpuSoft(params[:cpu_soft] || "0")
+        xm.cpuHard(params[:cpu_hard] || "0")
+        xm.vlanSoft(params[:vlan_soft] || "0")
+        xm.vlanHard(params[:vlan_hard] || "0")
+        xm.ramSoft(params[:ram_soft] || "0")
+        xm.ramHard(params[:ram_hard] || "0")
+        xm.repositorySoft(params[:repository_soft] || "0")  
+        xm.repositoryHard(params[:repository_hard] || "0") 
+        xm.publicIpsSoft(params[:public_ip_soft] || "0" ) 
+        xm.publicIpsHard(params[:public_ip_hard] || "0" ) 
+        xm.hdSoft(params[:hd_soft] || "0")
+        xm.hdHard(params[:hd_hard] || "0")
+        xm.storageSoft(params[:storage_soft] || "0")
+        xm.storageHard(params[:storage_hard] || "0")
+      }
+      res = RestClient.post(Api.url + "/admin/enterprises/#{resource_id}/limits?datacenter=#{datacenter}", xm.target!, :content_type => :xml)
+    end
+
+    def vdcs
+      VDC.all(:enterprise_id => resource_id)
     end
 
   end
@@ -581,14 +698,14 @@ module WeBee
     #
     # May raise exception if request is not successful
     #
-    def self.create(attributes)
-      if attributes[:role]
-        role = "<link rel='role' href='#{attributes[:role]}'/>"
-        attributes.delete :role
+    def self.create(params)
+      if params[:role]
+        role = "<link rel='role' href='#{params[:role]}'/>"
+        params.delete :role
       end
-      eid = attributes[:enterprise].resource_id
-      attributes.delete :enterprise
-      xml = attributes.to_xml(:root => 'user')
+      eid = params[:enterprise].resource_id
+      params.delete :enterprise
+      xml = params.to_xml(:root => 'user')
       xml = xml.gsub('</user>', "#{role}</user>")
       res = RestClient.post(Api.url + "/admin/enterprises/#{eid}/users", xml, :content_type => :xml, :accept => :xml)
       user = User.parse(res)
