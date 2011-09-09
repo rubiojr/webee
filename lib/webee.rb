@@ -580,7 +580,44 @@ module WeBee
     def self.find_by_name(name, options = {})
       VDC.all(options).find_all { |vdc| vdc.name =~ /#{name}/ }
     end
+    
+    #
+    # List all the virtual appliances in this virtual datacenter
+    #
+    def virtual_appliances
+      items = []
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/cloud/virtualdatacenters/#{vdc_id}/virtualappliances", :accept => :xml))
+      doc.search('//virtualAppliance').each do |node|
+        vapp = VirtualAppliance.parse(node.to_s)
+        vapp.vdc_id = vdc_id
+        items << vapp
+      end
+      items
+    end
 
+  end
+
+  class VirtualAppliance
+    include SAXMachine
+    
+    attr_accessor :vdc_id
+
+    element :name
+    element :highDisponibility, :as => :high_disponibility
+    element :error
+    element :publicApp, :as => :public_app
+    element :state
+    element :subState, :as => :sub_state
+    element :id, :as => :virtual_appliance_id
+
+    def virtual_machines
+      items = []
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/cloud/virtualdatacenters/#{vdc_id}/virtualappliances/#{virtual_appliance_id}/virtualmachines", :accept => :xml))
+      doc.search('//virtualMachine').each do |node|
+        items << VirtualMachine.parse(node.to_s)
+      end
+      items
+    end
   end
 
   class Enterprise
@@ -757,6 +794,23 @@ module WeBee
       end
       u
     end
+
+  end
+
+  class VirtualMachine
+    include SAXMachine
+
+    element :name
+    element :description
+    element :ram
+    element :cpu
+    element :hd
+    element :vrdpIP, :as => :vdrp_ip
+    element :vrdpPort, :as => :vdrp_port
+    element :state
+    element :highDisponibility, :as => :high_disponibility
+    element :password
+    element :id, :as => :virtualmachine_id
 
   end
 

@@ -167,3 +167,16 @@ WeBee::VDC.all
 # Needs Cloud operator privileges
 # 
 WeBee::VDC.all :datacenter_id => WeBee::Datacenter.all.first.datacenter_id, :enterprise_id => 3
+
+
+#
+# List all the Virtual Apps in an VDC
+#
+vdc.virtual_appliances.each do |vapp|
+  #
+  # List the VM in a VAPP
+  #
+  vapp.virtual_machines.each do |vm|
+    #puts vm.name
+  end
+end
