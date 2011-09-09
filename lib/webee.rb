@@ -373,8 +373,8 @@ module WeBee
     element :password
     element :user
     element :realCpu, :as => :real_cpu
-    element :realHd, :as => :real_hd
-    element :realRam, :as => :real_ram
+    element :realHd, :as => :real_hd # in Bytes
+    element :realRam, :as => :real_ram # in MB
     element :state
     element :type, :as => :hypervisortype
     element :cpu
