@@ -484,6 +484,8 @@ module WeBee
     element :vlanHard, :as => :vlan_hard
     element :hypervisorType, :as => :hypervisortype
     element :network, :class => VDCNetwork
+    element :link, :value => :href, :as => :datacenter_url, :with => {:rel => "datacenter" }
+    element :link, :value => :href, :as => :enterprise_url, :with => {:rel => "enterprise" }
 
     def self.create(attributes)
       datacenter = attributes[:datacenter].datacenter_id
@@ -620,6 +622,29 @@ module WeBee
     end
   end
 
+  class DatacenterLimit
+    include SAXMachine
+
+    element :id, :as => :datacenter_limit_id
+    element :ramSoft, :as => :ram_soft
+    element :ramHard, :as => :ram_hard
+    element :cpuSoft, :as => :cpu_soft
+    element :cpuHard, :as => :cpu_hard
+    element :storageSoft, :as => :storage_soft
+    element :storageHard, :as => :storage_hard
+    element :repositorySoft, :as => :repository_soft
+    element :repositoryHard, :as => :repository_hard
+    element :publicIpsSoft, :as => :public_ip_soft
+    element :publicIpsHard, :as => :public_ip_hard
+    element :hdSoft, :as => :hd_soft
+    element :hdHard, :as => :hd_hard
+    element :vlanSoft, :as => :vlan_soft
+    element :vlanHard, :as => :vlan_hard
+    element :idEnterprise, :as => :enterprise_id
+    element :idDataCenter, :as => :datacenter_id
+
+  end
+
   class Enterprise
     include SAXMachine
     include RestResource
@@ -644,7 +669,16 @@ module WeBee
     element :vlanSoft, :as => :vlan_soft
     element :vlanHard, :as => :vlan_hard
     element :isReservationRestricted, :as => :is_reservation_restricted
+    element :link, :value => :href, :as => :limits_url, :with => {:rel => "limits" }
     
+    def limits
+      items = []
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{resource_id}/limits"))
+      doc.search('//limit').each do |node|
+        items << DatacenterLimit.parse(node.to_s)
+      end
+      items
+    end
 
     def delete
       RestClient.delete(Api.url + "/admin/enterprises/#{resource_id}")
