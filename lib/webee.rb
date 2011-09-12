@@ -28,7 +28,7 @@ end
 
 module WeBee 
 
-  VERSION = '0.3'
+  VERSION = '0.3.1'
 
 
   module RestResource
@@ -581,6 +581,10 @@ module WeBee
 
     def self.find_by_name(name, options = {})
       VDC.all(options).find_all { |vdc| vdc.name =~ /#{name}/ }
+    end
+
+    def delete
+      RestClient.delete(Api.url + "/cloud/virtualdatacenters/#{vdc_id}")
     end
     
     #

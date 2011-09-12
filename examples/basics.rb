@@ -179,3 +179,6 @@ vdc.virtual_appliances.each do |vapp|
     #puts vm.name
   end
 end
+
+# Delete de VDC
+vdc.delete
