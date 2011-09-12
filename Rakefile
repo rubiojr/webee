@@ -20,6 +20,7 @@ Jeweler::Tasks.new do |gem|
   gem.add_runtime_dependency 'rest-client'
   gem.add_runtime_dependency 'nokogiri'
   gem.add_runtime_dependency 'builder'
+  gem.add_runtime_dependency 'i18n'
   gem.add_runtime_dependency 'alchemist'
   gem.add_runtime_dependency 'activesupport'
   #  gem.add_development_dependency 'rspec', '> 1.2.3'
