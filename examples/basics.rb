@@ -166,8 +166,7 @@ WeBee::VDC.all
 # List all VDCs from a specific Enterprise/Datacenter
 # Needs Cloud operator privileges
 # 
-WeBee::VDC.all :datacenter_id => WeBee::Datacenter.all.first.datacenter_id, :enterprise_id => 3
-
+vdc = (WeBee::VDC.all :datacenter_id => WeBee::Datacenter.all.first.datacenter_id, :enterprise_id => qa.enterprise_id).first
 
 #
 # List all the Virtual Apps in an VDC
