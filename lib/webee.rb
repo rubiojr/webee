@@ -725,7 +725,9 @@ module WeBee
       col = []
       doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{resource_id}/users"))
       doc.search('//user').each do |node|
-        col << User.parse(node.to_s)
+        user = User.parse(node.to_s)
+        col << user
+        user.enterprise_id = resource_id
       end
       col 
     end
@@ -783,6 +785,9 @@ module WeBee
     element :nick
     element :active
     element :id, :as => :user_id
+    element :link, :value => :href, :as => :virtual_machines_url, :with => {:title => "virtualmachines" }
+    element :link, :value => :href, :as => :enterprise_url, :with => {:rel => "enterprise" }
+    element :link, :value => :href, :as => :roles_url, :with => {:rel => "role" }
 
     #
     # May raise exception if request is not successful
@@ -827,9 +832,25 @@ module WeBee
       u = []
       doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/users"))
       doc.search('//user').each do |node|
-        u << User.parse(node.to_s)
+        user = User.parse(node.to_s)
+        u << user
+        user.enterprise_id = enterprise_id
       end
       u
+    end
+
+    def virtual_machines
+      items = []
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/users/#{user_id}/action/virtualmachines" , :accept => :xml))
+      doc.search('//virtualMachine').each do |node|
+        items << VirtualMachine.parse(node.to_s)
+      end
+      items 
+    end
+
+    def enterprise
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}" , :accept => :xml))
+      Enterprise.parse doc.root.to_s
     end
 
   end
