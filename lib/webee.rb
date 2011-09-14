@@ -82,7 +82,6 @@ module WeBee
         @url = build_url(url)
       end
 
-      private
       def build_url(url)
         port ||= 80
         uri = URI.parse(url)
@@ -385,6 +384,8 @@ module WeBee
     element :ramUsed, :as => :ram_used
     element :virtualSwitch, :as => :virtual_switch
     elements :datastore, :as => :datastores, :class => Datastore
+    element :link, :value => :href, :as => :virtual_machines_url, :with => {:title => "virtualmachines" }
+    element :link, :value => :href, :as => :rack_url, :with => { :rel => "rack" }
 
     def virtual_switches
       virtual_switch.split('/')
@@ -426,6 +427,20 @@ module WeBee
         }
       }
       xm.target!
+    end
+
+    def rack
+      doc = Nokogiri.parse(RestClient.get(Api.build_url(rack_url) , :accept => :xml))
+      Rack.parse doc.root.to_s
+    end
+
+    def virtual_machines
+      items = []
+      doc = Nokogiri.parse(RestClient.get(Api.build_url(virtual_machines_url) , :accept => :xml))
+      doc.search('//virtualMachine').each do |node|
+        items << VirtualMachine.parse(node.to_s)
+      end
+      items 
     end
 
   end
@@ -849,7 +864,7 @@ module WeBee
     end
 
     def enterprise
-      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}" , :accept => :xml))
+      doc = Nokogiri.parse(RestClient.get(Api.build_url(enterprise_url) , :accept => :xml))
       Enterprise.parse doc.root.to_s
     end
 
@@ -868,6 +883,20 @@ module WeBee
     element :highDisponibility, :as => :high_disponibility
     element :password
     element :id, :as => :virtualmachine_id
+    element :link, :value => :href, :as => :vdc_url, :with => {:rel => "virtualdatacenter" }
+    element :link, :value => :href, :as => :enterprise_url, :with => {:rel => "enterprise" }
+
+    def vdc
+      # FIXME: Buggy Abiquo ABI missing some relations
+      doc = Nokogiri.parse(RestClient.get(Api.build_url(vdc_url) , :accept => :xml))
+      Rack.parse doc.root.to_s
+    end
+    
+    def enterprise
+      # FIXME: Buggy Abiquo ABI missing some relations
+      doc = Nokogiri.parse(RestClient.get(Api.build_url(enterprise_url) , :accept => :xml))
+      Enterprise.parse doc.root.to_s
+    end
 
   end
 
