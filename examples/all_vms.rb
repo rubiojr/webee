@@ -20,7 +20,11 @@ Datacenter.all.each do |dc|
     rack.machines.each do |machine|
       puts "Machine:".green.bold + " #{machine.name} (#{machine.virtual_machines.size} VMs)"
       machine.virtual_machines.each do |vm|
-        puts "  Name:".yellow.bold + " #{vm.name} " + "Enterprise:".yellow.bold + " #{vm.enterprise.name rescue ''} " + "VDC:".yellow.bold + " #{vm.vdc.name rescue ''}"
+        if vm.managed?
+          puts "  Name:".yellow.bold + " #{vm.name} " + "Enterprise:".yellow.bold + " #{vm.enterprise.name} " + "VDC:".yellow.bold + " #{vm.vdc.name}"
+        else
+          puts "  Name:".yellow.bold + " #{vm.name} "
+        end
       end
     end
   end

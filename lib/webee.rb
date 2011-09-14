@@ -28,7 +28,7 @@ end
 
 module WeBee 
 
-  VERSION = '0.3.3'
+  VERSION = '0.3.4'
 
   module RestResource
     
@@ -883,16 +883,23 @@ module WeBee
     element :highDisponibility, :as => :high_disponibility
     element :password
     element :id, :as => :virtualmachine_id
+    element :idType, :as => :id_type
     element :link, :value => :href, :as => :vdc_url, :with => {:rel => "virtualdatacenter" }
     element :link, :value => :href, :as => :enterprise_url, :with => {:rel => "enterprise" }
 
     def vdc
+      return nil if not managed?
       # FIXME: Buggy Abiquo ABI missing some relations
       doc = Nokogiri.parse(RestClient.get(Api.build_url(vdc_url) , :accept => :xml))
       Rack.parse doc.root.to_s
     end
+
+    def managed?
+      id_type.eql?("0") ? false : true
+    end
     
     def enterprise
+      return nil if not managed?
       # FIXME: Buggy Abiquo ABI missing some relations
       doc = Nokogiri.parse(RestClient.get(Api.build_url(enterprise_url) , :accept => :xml))
       Enterprise.parse doc.root.to_s
