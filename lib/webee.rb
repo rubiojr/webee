@@ -863,8 +863,8 @@ module WeBee
     element :ram
     element :cpu
     element :hd
-    element :vrdpIP, :as => :vdrp_ip
-    element :vrdpPort, :as => :vdrp_port
+    element :vrdpIP, :as => :vrdp_ip
+    element :vrdpPort, :as => :vrdp_port
     element :state
     element :highDisponibility, :as => :high_disponibility
     element :password
