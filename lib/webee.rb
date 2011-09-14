@@ -6,6 +6,7 @@ require 'active_support/core_ext/hash'
 require 'uri'
 require 'json'
 require 'builder'
+require 'alchemist'
 
 #
 # Monkeypatch SAXMachine to keep the raw XMK
@@ -162,6 +163,43 @@ module WeBee
     element :vlanSoft, :as => :vlan_soft
     element :vlanHard, :as => :vlan_hard
     element :location
+
+    #
+    # Return Datacenter Statistics
+    # RAM in MB
+    # HD in GB
+    #
+    def stats
+      s = {
+        :free_hd => 0, 
+        :real_hd => 0,
+        :used_hd => 0, 
+        :machines => 0,
+        :free_ram => 0,
+        :real_ram => 0,
+        :used_ram => 0,
+        :real_cpus => 0,
+        :virtual_machines => 0,
+      }
+      Datacenter.all.each do |dc|
+        dc.racks.each do |rack|
+          rack.machines.each do |m|
+            s[:machines] += 1
+            s[:used_ram] += m.ram_used.to_i
+            s[:real_ram] += m.real_ram.to_i
+            s[:real_cpus] += m.real_cpu.to_i
+            s[:used_hd] += m.hd_used.to_i.bytes.to.gigabytes.to_f.round
+            s[:real_hd] += m.real_hd.to_i.bytes.to.gigabytes.to_f.round
+            m.virtual_machines.each do |vm|
+              s[:virtual_machines] += 1
+            end
+          end
+        end
+      end
+      s[:free_ram] = s[:real_ram] - s[:used_ram]
+      s[:free_hd] = s[:real_hd] - s[:used_hd]
+      return s
+    end
 
     def self.create(attributes)
       if attributes[:remote_services].nil?
