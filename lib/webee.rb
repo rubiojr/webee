@@ -28,7 +28,7 @@ end
 
 module WeBee 
 
-  VERSION = '0.3.2'
+  VERSION = '0.3.3'
 
   module RestResource
     
@@ -863,8 +863,7 @@ module WeBee
     element :ram
     element :cpu
     element :hd
-    element :vrdpIP, :as => :vrdp_ip
-    element :vrdpPort, :as => :vrdp_port
+    element :vdrpPort, :as => :vrdp_port
     element :state
     element :highDisponibility, :as => :high_disponibility
     element :password
