@@ -18,10 +18,11 @@ Enterprise.all.each do |ent|
 end
 
 abusers = abusers.sort do |a,b|
-  puts a[1][:vms]
   a[1][:vms] <=> b[1][:vms]
 end.reverse
 
 abusers.each do |a|
-  puts "User: #{a[1][:full_name]}".ljust(40) + "VMs: #{a[1][:vms]}"
+  if a[1][:vms] > 0
+    puts "User: #{a[1][:full_name]}".ljust(40) + "VMs: #{a[1][:vms]}"
+  end
 end
