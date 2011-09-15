@@ -271,6 +271,24 @@ module WeBee
       machine = Machine.parse res
     end
 
+    #
+    # Find a WeBee::VirtualMachine by name in this
+    # Datacenter. 
+    #
+    # returns a WeBee::VirtualMachine 
+    #
+    def find_vms_by_name(regexp)
+      matches = []
+      self.racks.each do |rack|
+        rack.machines.each do |m|
+          m.virtual_machines.each do |vm|
+            matches << vm if vm.name =~ /#{regexp}/i
+          end
+        end
+      end
+      matches
+    end
+
   end
 
   class RemoteService
