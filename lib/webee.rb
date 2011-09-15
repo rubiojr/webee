@@ -499,6 +499,14 @@ module WeBee
       items 
     end
 
+    def find_vms_by_name(name)
+      matches = []
+        self.virtual_machines.each do |vm|
+          matches << vm if vm.name =~ /#{regexp}/i
+        end
+      matches
+    end
+
   end
 
   class RemoteServiceType
@@ -942,10 +950,11 @@ module WeBee
     element :idType, :as => :id_type
     element :link, :value => :href, :as => :vdc_url, :with => {:rel => "virtualdatacenter" }
     element :link, :value => :href, :as => :enterprise_url, :with => {:rel => "enterprise" }
+    element :link, :value => :href, :as => :machine_url, :with => {:rel => "machine" }
+    element :link, :value => :href, :as => :user_url, :with => {:rel => "user" }
 
     def vdc
       return nil if not managed?
-      # FIXME: Buggy Abiquo ABI missing some relations
       doc = Nokogiri.parse(RestClient.get(Api.build_url(vdc_url) , :accept => :xml))
       Rack.parse doc.root.to_s
     end
@@ -956,9 +965,18 @@ module WeBee
     
     def enterprise
       return nil if not managed?
-      # FIXME: Buggy Abiquo ABI missing some relations
       doc = Nokogiri.parse(RestClient.get(Api.build_url(enterprise_url) , :accept => :xml))
       Enterprise.parse doc.root.to_s
+    end
+
+    def machine
+      doc = Nokogiri.parse(RestClient.get(Api.build_url(machine_url) , :accept => :xml))
+      Machine.parse doc.root.to_s
+    end
+
+    def user
+      doc = Nokogiri.parse(RestClient.get(Api.build_url(user_url) , :accept => :xml))
+      User.parse doc.root.to_s
     end
 
   end
