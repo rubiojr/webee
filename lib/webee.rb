@@ -29,7 +29,7 @@ end
 
 module WeBee 
 
-  VERSION = '0.3.5'
+  VERSION = '0.3.6'
 
   module RestResource
     
@@ -87,7 +87,7 @@ module WeBee
         port ||= 80
         uri = URI.parse(url)
         @host = uri.host
-        "http://#{user}:#{password}@#{uri.host}:#{uri.port}#{uri.path}"
+        "#{uri.scheme}://#{user}:#{password}@#{uri.host}:#{uri.port}#{uri.path}"
       end
     end
 
@@ -126,7 +126,7 @@ module WeBee
         enterprise_id = enterprise
       end
       items = []
-      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/appslib/ovfpackages", :content_type => :xml))
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/appslib/ovfpackages", :accept => :xml))
       doc.search('//ovfPackage').each do |node|
         items << OVFPackage.parse(node.to_s)
       end
@@ -134,7 +134,7 @@ module WeBee
     end
 
     def self.find(enterprise_id = 1, package_id = 1)
-      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/appslib/ovfpackages/#{package_id}"))
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/appslib/ovfpackages/#{package_id}", :accept => :xml))
       OVFPackage.parse(doc.root.to_s)
     end
   end
@@ -755,7 +755,7 @@ module WeBee
     
     def limits
       items = []
-      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{resource_id}/limits"))
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{resource_id}/limits", :accept => :xml))
       doc.search('//limit').each do |node|
         items << DatacenterLimit.parse(node.to_s)
       end
@@ -802,7 +802,7 @@ module WeBee
 
     def users
       col = []
-      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{resource_id}/users"))
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{resource_id}/users", :accept => :xml))
       doc.search('//user').each do |node|
         user = User.parse(node.to_s)
         col << user
@@ -896,7 +896,7 @@ module WeBee
       else
         enterprise_id = enterprise
       end
-      User.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/users/#{user_id}"))
+      User.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/users/#{user_id}", :accept => :xml))
     end
 
     def self.all(enterprise = nil)
@@ -909,7 +909,7 @@ module WeBee
         enterprise_id = '_'
       end
       u = []
-      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/users"))
+      doc = Nokogiri.parse(RestClient.get(Api.url + "/admin/enterprises/#{enterprise_id}/users", :accept => :xml))
       doc.search('//user').each do |node|
         user = User.parse(node.to_s)
         u << user
