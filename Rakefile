@@ -23,6 +23,7 @@ Jeweler::Tasks.new do |gem|
   gem.add_runtime_dependency 'i18n'
   gem.add_runtime_dependency 'alchemist'
   gem.add_runtime_dependency 'activesupport'
+  gem.add_runtime_dependency 'json'
   #  gem.add_development_dependency 'rspec', '> 1.2.3'
 end
 Jeweler::RubygemsDotOrgTasks.new
