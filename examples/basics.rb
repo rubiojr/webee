@@ -117,7 +117,7 @@ rack = dc.add_rack :name => 'rack_1',
 #
 # Hypervisor (Machine) stuff
 #
-machine = dc.discover_machine :ip => '10.60.1.24', :hypervisortype => 'kvm'
+machine = dc.discover_machine :ip => '127.0.0.1', :hypervisortype => 'kvm'
 # Use the first virtual switch we find
 machine.virtual_switch = machine.virtual_switches.first
 # Enable the first datastore found
